@@ -1,0 +1,27 @@
+name: reels_feed
+description: "A vertical, full-screen video and photo feed for Flutter (reels, shorts, stories): smooth snapping, video preloading with a controller pool, multi-media posts, shared mute, view tracking, and ready-made action rail, caption and double-tap like. No state-management dependency."
+version: 1.0.0
+repository: https://github.com/kenresoft-technologies/reels_feed
+issue_tracker: https://github.com/kenresoft-technologies/reels_feed/issues
+topics:
+  - video
+  - feed
+  - reels
+  - short-video
+  - widgets
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  video_player: ^2.14.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  plugin_platform_interface: ^2.1.8
+  video_player_platform_interface: ^6.3.0

@@ -1,0 +1,21 @@
+include: package:flutter_lints/flutter.yaml
+
+formatter:
+  page_width: 105
+
+analyzer:
+  exclude:
+    - build/**
+    - example/build/**
+
+linter:
+  rules:
+    - public_member_api_docs
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - unawaited_futures
+    - use_super_parameters
+    - avoid_print
+    - always_declare_return_types
+    - directives_ordering
+    - sort_child_properties_last
