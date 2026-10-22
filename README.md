@@ -57,9 +57,20 @@ dependencies:
 ```
 
 Videos are played by [`video_player`](https://pub.dev/packages/video_player), so
-follow its platform setup (for example, Android needs the internet permission
-for network videos, and iOS needs `NSAppTransportSecurity` settings only for
-plain `http` addresses).
+follow its platform setup. The one step that is easy to miss:
+
+**Android: allow internet access in release builds.** `flutter create` adds the
+`INTERNET` permission only to the debug and profile manifests, so network videos
+play while you develop and then fail in a release build (the log shows
+`android_getaddrinfo failed: EPERM`). Add this to
+`android/app/src/main/AndroidManifest.xml`, inside `<manifest>`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+```
+
+iOS needs nothing for `https` addresses; plain `http` addresses need an
+`NSAppTransportSecurity` exception.
 
 ## Quick start
 
@@ -201,20 +212,24 @@ disposes its own.
 
 ### Your own image loader or cache
 
-Pictures use Flutter's image cache by default. To use `cached_network_image` or
-anything else, pass an `imageBuilder`:
+Pictures use Flutter's in-memory image cache by default, which keeps this package
+free of extra dependencies. For a disk cache, placeholders and error handling,
+pass an `imageBuilder`. With [`any_source_image`](https://pub.dev/packages/any_source_image):
 
 ```dart
 ReelMediaCarousel(
   media: post.media,
-  imageBuilder: (context, source, fit) => CachedNetworkImage(
-    imageUrl: (source as ReelNetworkSource).url,
+  imageBuilder: (context, source, fit) => AppImage(
+    source.key,                    // the address of a network picture
     fit: fit,
     width: double.infinity,
     height: double.infinity,
   ),
 )
 ```
+
+The example app does exactly this. Any other loader works the same way, for
+example `CachedNetworkImage(imageUrl: (source as ReelNetworkSource).url, fit: fit)`.
 
 ### Your own video player setup (caching, headers)
 
@@ -258,6 +273,12 @@ prepared video holds a decoder, so go above 2 only on purpose.
   `active` to whether its tab is selected.
 
 ## Performance notes
+
+On a mid-range Android phone (profile mode) scrolling the example feed with videos, captions and the
+action rail renders 90% of frames in about 20 ms, against about 9 ms for a bare `PageView` of
+images. Blurred text and icon shadows were the biggest cost, so the overlays here use a cheap hard
+shadow (`reelCheapShadow`). If you add your own overlays, prefer a `ReelScrim` for legibility over
+blurred shadows.
 
 - Give videos a `poster` and `aspectRatio` where you know them.
 - Keep `itemBuilder` cheap and avoid rebuilding the whole list on every like;

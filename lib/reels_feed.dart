@@ -22,3 +22,4 @@ export 'src/widgets/reel_caption.dart' show ReelCaption;
 export 'src/widgets/reel_heart_burst.dart' show ReelHeartBurst, ReelHeartBurstState;
 export 'src/widgets/reel_progress_bar.dart' show ReelProgressBar;
 export 'src/widgets/reel_scrim.dart' show ReelScrim;
+export 'src/widgets/reel_shadows.dart' show reelCheapShadow;

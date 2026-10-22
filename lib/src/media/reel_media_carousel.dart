@@ -382,7 +382,6 @@ class _ReelMediaCarouselState extends State<ReelMediaCarousel> {
                         decoration: BoxDecoration(
                           color: i == _page ? Colors.white : Colors.white54,
                           borderRadius: BorderRadius.circular(3),
-                          boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
                         ),
                       ),
                   ],

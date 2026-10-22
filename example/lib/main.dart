@@ -1,5 +1,9 @@
+import 'package:any_source_image/any_source_image.dart';
 import 'package:flutter/material.dart';
 import 'package:reels_feed/reels_feed.dart';
+
+// Used by the performance test to compare builds: full, media, images or raw.
+const String perfMode = String.fromEnvironment('PERF', defaultValue: 'full');
 
 void main() => runApp(const ExampleApp());
 
@@ -173,6 +177,43 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (perfMode == 'raw') {
+      return Scaffold(
+        body: PageView.builder(
+          scrollDirection: Axis.vertical,
+          itemBuilder: (context, i) => Image.network(
+            'https://picsum.photos/seed/raw$i/720/1280',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+        ),
+      );
+    }
+    if (perfMode == 'media' || perfMode == 'images') {
+      final posts = perfMode == 'images'
+          ? List.generate(
+              40,
+              (i) => Post(
+                id: i,
+                author: 'x',
+                caption: '',
+                media: [
+                  ReelMedia.imageUrl(
+                    'https://picsum.photos/seed/raw$i/720/1280',
+                    aspectRatio: 9 / 16,
+                  ),
+                ],
+              ),
+            )
+          : _posts;
+      return Scaffold(
+        body: ReelsFeed(
+          itemCount: posts.length,
+          itemBuilder: (context, i) => ReelMediaCarousel(media: posts[i].media),
+        ),
+      );
+    }
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -232,6 +273,8 @@ class _PostView extends StatelessWidget {
       children: [
         ReelMediaCarousel(
           media: post.media,
+          // Pictures load through any_source_image, which caches them on disk.
+          imageBuilder: _cachedImage,
           // Double tap likes (it only adds a like, like the big apps do).
           onDoubleTap: (_) {
             if (!post.liked) onLike();
@@ -294,7 +337,7 @@ class _PostView extends StatelessWidget {
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
-                    shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
+                    shadows: reelCheapShadow,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -311,4 +354,16 @@ class _PostView extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Loads a picture with `any_source_image`: network images are cached on disk,
+/// with a placeholder while loading and an error widget if it fails.
+Widget _cachedImage(BuildContext context, ReelSource source, BoxFit fit) {
+  return AppImage(
+    source.key,
+    fit: fit,
+    width: double.infinity,
+    height: double.infinity,
+    placeholderColor: Colors.white10,
+  );
 }

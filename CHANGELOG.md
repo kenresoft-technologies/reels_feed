@@ -12,4 +12,8 @@ First release.
 - Overlays: `ReelActionRail`, `ReelCaption`, `ReelScrim`, `ReelProgressBar`, `ReelHeartBurst`,
   `formatReelCount`.
 - Network, asset and file sources for pictures and videos; custom image loading through `imageBuilder`.
+- Quietly reopens a video that fails once (`ReelVideoPool.autoRetries`) before showing the error, and
+  a player that breaks after opening can be retried too.
+- Overlays use a cheap hard shadow instead of a blurred one (`reelCheapShadow`), which keeps scrolling
+  smooth on mid-range GPUs.
 - Compiles to WebAssembly.

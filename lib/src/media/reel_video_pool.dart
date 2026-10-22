@@ -26,7 +26,7 @@ enum ReelVideoStatus {
 /// It notifies listeners when [status] changes or after [retry] replaces the
 /// [controller].
 class ReelVideoEntry extends ChangeNotifier {
-  ReelVideoEntry._(this.source, this._factory) {
+  ReelVideoEntry._(this.source, this._factory, this._maxAutoRetries) {
     _open();
   }
 
@@ -34,6 +34,9 @@ class ReelVideoEntry extends ChangeNotifier {
   final ReelSource source;
 
   final ReelVideoControllerFactory _factory;
+  final int _maxAutoRetries;
+  int _autoRetriesUsed = 0;
+  Timer? _retryTimer;
   late VideoPlayerController _controller;
   ReelVideoStatus _status = ReelVideoStatus.initializing;
   Object? _error;
@@ -63,18 +66,51 @@ class ReelVideoEntry extends ChangeNotifier {
       await controller.initialize();
       if (_disposed || !identical(controller, _controller)) return;
       _status = ReelVideoStatus.ready;
+      controller.addListener(_watch);
     } catch (error) {
       if (_disposed || !identical(controller, _controller)) return;
-      _error = error;
-      _status = ReelVideoStatus.failed;
+      _fail(error);
+      return;
     }
+    notifyListeners();
+  }
+
+  // A player that opened fine can still fail later, for example when its
+  // connection drops while it sits idle.
+  void _watch() {
+    if (_disposed || _status != ReelVideoStatus.ready) return;
+    final value = _controller.value;
+    if (value.hasError) _fail(value.errorDescription ?? 'The video stopped with an error.');
+  }
+
+  void _fail(Object error) {
+    if (_autoRetriesUsed < _maxAutoRetries) {
+      // Often a dropped connection: open the video again once, quietly.
+      _autoRetriesUsed += 1;
+      if (kDebugMode) debugPrint('reels_feed: retrying $source after: $error');
+      final old = _controller..removeListener(_watch);
+      _status = ReelVideoStatus.initializing;
+      _error = null;
+      notifyListeners();
+      unawaited(old.dispose());
+      _retryTimer = Timer(const Duration(milliseconds: 300), () {
+        if (_disposed) return;
+        _open();
+        notifyListeners();
+      });
+      return;
+    }
+    _error = error;
+    _status = ReelVideoStatus.failed;
+    if (kDebugMode) debugPrint('reels_feed: could not play $source: $error');
     notifyListeners();
   }
 
   /// Opens the video again after a failure.
   void retry() {
     if (_disposed || _status != ReelVideoStatus.failed) return;
-    final old = _controller;
+    _autoRetriesUsed = 0;
+    final old = _controller..removeListener(_watch);
     _open();
     notifyListeners();
     unawaited(old.dispose());
@@ -84,6 +120,8 @@ class ReelVideoEntry extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _retryTimer?.cancel();
+    _controller.removeListener(_watch);
     unawaited(_controller.dispose());
     super.dispose();
   }
@@ -102,13 +140,16 @@ class ReelVideoPool {
   /// Creates a pool.
   ///
   /// [maxIdle] is how many unused videos stay open. [mixWithOthers] lets the
-  /// videos play alongside audio from other apps. [controllerFactory] replaces
+  /// videos play alongside audio from other apps. [autoRetries] is how many times a
+  /// failing video is quietly reopened before an error shows. [controllerFactory] replaces
   /// how players are built.
   ReelVideoPool({
     this.maxIdle = 1,
     this.mixWithOthers = false,
+    this.autoRetries = 1,
     ReelVideoControllerFactory? controllerFactory,
   }) : assert(maxIdle >= 0),
+       assert(autoRetries >= 0),
        _factory =
            controllerFactory ??
            ((source) => createReelVideoController(source, mixWithOthers: mixWithOthers));
@@ -118,6 +159,10 @@ class ReelVideoPool {
 
   /// Whether videos play alongside audio from other apps.
   final bool mixWithOthers;
+
+  /// How many times a video that fails is quietly opened again before the viewer
+  /// sees an error. A dropped connection is the usual cause, so one retry hides it.
+  final int autoRetries;
 
   final ReelVideoControllerFactory _factory;
   final Map<String, ReelVideoEntry> _entries = <String, ReelVideoEntry>{};
@@ -134,7 +179,10 @@ class ReelVideoPool {
   /// with [release].
   ReelVideoEntry acquire(ReelSource source) {
     assert(!_disposed, 'This pool has been disposed.');
-    final entry = _entries.putIfAbsent(source.key, () => ReelVideoEntry._(source, _factory));
+    final entry = _entries.putIfAbsent(
+      source.key,
+      () => ReelVideoEntry._(source, _factory, autoRetries),
+    );
     entry
       .._references += 1
       .._lastUsed = ++_clock;

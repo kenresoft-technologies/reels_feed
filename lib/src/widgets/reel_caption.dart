@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'reel_shadows.dart';
+
 /// A caption that shows a few lines and expands on tap, with tappable
 /// `#hashtags`, `@mentions` and links.
 ///
@@ -107,12 +109,7 @@ class _ReelCaptionState extends State<ReelCaption> {
   Widget build(BuildContext context) {
     final base =
         widget.style ??
-        const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          height: 1.3,
-          shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
-        );
+        const TextStyle(color: Colors.white, fontSize: 14, height: 1.3, shadows: reelCheapShadow);
     final link = (widget.linkStyle ?? const TextStyle(fontWeight: FontWeight.w700)).copyWith(
       color: widget.linkStyle?.color ?? base.color,
     );

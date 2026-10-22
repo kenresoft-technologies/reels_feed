@@ -173,6 +173,11 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
 
   bool _foreground = true;
   bool _tickersEnabled = true;
+
+  // Tells each built post when the active post or the live state changes, so only
+  // the item scopes update on a swipe and your itemBuilder is not run again.
+  final ValueNotifier<bool> _liveNotifier = ValueNotifier<bool>(true);
+  late Listenable _itemChanges;
   Timer? _viewTimer;
   final Set<int> _viewed = <int>{};
   (int, int)? _lastLoadMoreRequest;
@@ -193,6 +198,7 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
   void _attachController() {
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? ReelsFeedController(initialIndex: widget.initialIndex);
+    _itemChanges = Listenable.merge(<Listenable>[_controller.currentIndex, _liveNotifier]);
   }
 
   void _attachPool() {
@@ -206,6 +212,7 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
     final enabled = TickerMode.valuesOf(context).enabled;
     if (enabled != _tickersEnabled) {
       _tickersEnabled = enabled;
+      _syncLive();
       _scheduleView();
     }
   }
@@ -221,6 +228,7 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
       if (_ownsPool) _pool.dispose();
       _attachPool();
     }
+    if (oldWidget.active != widget.active) _syncLive();
     if (oldWidget.active != widget.active || oldWidget.viewDuration != widget.viewDuration) {
       _scheduleView();
     }
@@ -240,7 +248,8 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final foreground = state == AppLifecycleState.resumed;
     if (foreground == _foreground) return;
-    setState(() => _foreground = foreground);
+    _foreground = foreground;
+    _syncLive();
     _scheduleView();
   }
 
@@ -249,8 +258,9 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
     widget.onPageChanged?.call(index);
     _scheduleView();
     _maybeLoadMore();
-    if (mounted) setState(() {});
   }
+
+  void _syncLive() => _liveNotifier.value = _live;
 
   void _scheduleView() {
     _viewTimer?.cancel();
@@ -279,6 +289,7 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _viewTimer?.cancel();
     _focusNode.dispose();
+    _liveNotifier.dispose();
     if (_ownsController) _controller.dispose();
     if (_ownsPool) _pool.dispose();
     super.dispose();
@@ -305,8 +316,6 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
     }
 
     final reach = widget.preload.reach;
-    final live = _live;
-
     Widget feed = PageView.builder(
       scrollDirection: Axis.vertical,
       controller: _controller.pageController,
@@ -315,17 +324,18 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
       scrollCacheExtent: ScrollCacheExtent.viewport(reach.toDouble()),
       onPageChanged: _onPageChanged,
       itemCount: widget.itemCount,
-      itemBuilder: (context, index) {
-        final phase = widget.preload.phaseOf(index, _current);
-        final state = ReelItemState(
-          index: index,
-          phase: phase == ReelItemPhase.active && !live ? ReelItemPhase.preload : phase,
-        );
-        return ReelItemScope(
-          state: state,
-          child: Builder(builder: (context) => widget.itemBuilder(context, index)),
-        );
-      },
+      itemBuilder: (context, index) => ListenableBuilder(
+        listenable: _itemChanges,
+        builder: (context, child) {
+          final phase = widget.preload.phaseOf(index, _current);
+          final state = ReelItemState(
+            index: index,
+            phase: phase == ReelItemPhase.active && !_live ? ReelItemPhase.preload : phase,
+          );
+          return ReelItemScope(state: state, child: child!);
+        },
+        child: Builder(builder: (context) => widget.itemBuilder(context, index)),
+      ),
     );
 
     // Mouse and trackpad can drag the feed, not only touch.

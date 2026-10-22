@@ -10,6 +10,9 @@ class FakeVideoPlatform extends VideoPlayerPlatform with MockPlatformInterfaceMi
   /// Addresses that fail to open.
   final Set<String> failing = <String>{};
 
+  /// Addresses that fail to open only the next time, then work.
+  final Set<String> failingOnce = <String>{};
+
   /// Every address a player was created for, in order.
   final List<String> created = <String>[];
 
@@ -40,6 +43,14 @@ class FakeVideoPlatform extends VideoPlayerPlatform with MockPlatformInterfaceMi
     return null;
   }
 
+  /// Makes the open player for [uri] report a runtime error, as when its
+  /// connection drops.
+  void breakPlayer(String uri) {
+    for (final e in _uris.entries.where((e) => e.value == uri)) {
+      _events[e.key]!.addError(PlatformException(code: 'broken', message: 'connection lost'));
+    }
+  }
+
   /// Whether every created player has been disposed.
   bool get allDisposed => disposed.length == _uris.length;
 
@@ -57,7 +68,8 @@ class FakeVideoPlatform extends VideoPlayerPlatform with MockPlatformInterfaceMi
     created.add(uri);
     final controller = StreamController<VideoEvent>();
     _events[id] = controller;
-    if (failing.contains(uri)) {
+    final failNow = failing.contains(uri) || failingOnce.remove(uri);
+    if (failNow) {
       scheduleMicrotask(
         () => controller.addError(PlatformException(code: 'fail', message: 'cannot open')),
       );

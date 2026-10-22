@@ -30,6 +30,32 @@ void main() {
     expect(find.text('0:preload', skipOffstage: false), findsOneWidget);
   });
 
+  testWidgets('a swipe does not run itemBuilder again for posts that stay on screen', (tester) async {
+    final builds = <int, int>{};
+    await tester.pumpWidget(
+      _app(
+        ReelsFeed(
+          itemCount: 6,
+          itemBuilder: (context, index) {
+            builds[index] = (builds[index] ?? 0) + 1;
+            // The scope is read one level down, as ReelMediaCarousel does.
+            return Builder(builder: (context) => _item(context, index));
+          },
+        ),
+      ),
+    );
+    final before0 = builds[0];
+    final before1 = builds[1];
+
+    await tester.fling(find.byType(PageView), const Offset(0, -300), 1500);
+    await tester.pumpAndSettle();
+
+    expect(builds[0], before0);
+    expect(builds[1], before1);
+    // The phases still updated.
+    expect(find.text('1:active'), findsOneWidget);
+  });
+
   testWidgets('a controller reads and drives the feed', (tester) async {
     final controller = ReelsFeedController();
     addTearDown(controller.dispose);

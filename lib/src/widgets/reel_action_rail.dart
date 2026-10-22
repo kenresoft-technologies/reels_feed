@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'format_count.dart';
+import 'reel_shadows.dart';
 
 /// One button in a [ReelActionRail]: an icon with an optional count under it.
 @immutable
@@ -63,6 +64,7 @@ class ReelActionRail extends StatelessWidget {
     this.iconSize = 30,
     this.color = Colors.white,
     this.textStyle,
+    this.shadows = reelCheapShadow,
   });
 
   /// The buttons, top to bottom.
@@ -80,6 +82,11 @@ class ReelActionRail extends StatelessWidget {
   /// The count text style. Defaults to a small bold style with a shadow.
   final TextStyle? textStyle;
 
+  /// Shadows under the icons and counts. The default is a cheap hard shadow;
+  /// a blurred one (for example `Shadow(blurRadius: 8)`) looks softer but costs
+  /// noticeably more while scrolling.
+  final List<Shadow> shadows;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -87,7 +94,13 @@ class ReelActionRail extends StatelessWidget {
       children: [
         for (var i = 0; i < actions.length; i++) ...[
           if (i > 0) SizedBox(height: spacing),
-          _ActionButton(action: actions[i], iconSize: iconSize, color: color, textStyle: textStyle),
+          _ActionButton(
+            action: actions[i],
+            iconSize: iconSize,
+            color: color,
+            textStyle: textStyle,
+            shadows: shadows,
+          ),
         ],
       ],
     );
@@ -99,6 +112,7 @@ class _ActionButton extends StatefulWidget {
     required this.action,
     required this.iconSize,
     required this.color,
+    required this.shadows,
     this.textStyle,
   });
 
@@ -106,6 +120,7 @@ class _ActionButton extends StatefulWidget {
   final double iconSize;
   final Color color;
   final TextStyle? textStyle;
+  final List<Shadow> shadows;
 
   @override
   State<_ActionButton> createState() => _ActionButtonState();
@@ -163,7 +178,7 @@ class _ActionButtonState extends State<_ActionButton> with SingleTickerProviderS
                     action.isActive ? (action.activeIcon ?? action.icon) : action.icon,
                     color: iconColor,
                     size: widget.iconSize,
-                    shadows: const [Shadow(blurRadius: 8, color: Colors.black45)],
+                    shadows: widget.shadows,
                   ),
                 ),
                 if (text != null) ...[
@@ -176,7 +191,7 @@ class _ActionButtonState extends State<_ActionButton> with SingleTickerProviderS
                           color: widget.color,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          shadows: const [Shadow(blurRadius: 6, color: Colors.black54)],
+                          shadows: widget.shadows,
                         ),
                   ),
                 ],

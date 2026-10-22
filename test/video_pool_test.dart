@@ -110,7 +110,7 @@ void main() {
 
   test('a video that cannot open fails and can be retried', () async {
     platform.failing.add('https://cdn/a.mp4');
-    final pool = ReelVideoPool();
+    final pool = ReelVideoPool(autoRetries: 0);
     addTearDown(pool.dispose);
     final entry = pool.acquire(_a);
     await settle();
@@ -123,6 +123,52 @@ void main() {
     await settle();
     expect(entry.status, ReelVideoStatus.ready);
     expect(platform.created, hasLength(2));
+  });
+
+  test('a player that breaks after opening fails and can be retried', () async {
+    final pool = ReelVideoPool(autoRetries: 0);
+    addTearDown(pool.dispose);
+    final entry = pool.acquire(_a);
+    await settle();
+    expect(entry.status, ReelVideoStatus.ready);
+
+    platform.breakPlayer('https://cdn/a.mp4');
+    await settle();
+    expect(entry.status, ReelVideoStatus.failed);
+
+    entry.retry();
+    await settle();
+    expect(entry.status, ReelVideoStatus.ready);
+    expect(platform.created, hasLength(2));
+  });
+
+  test('a failing video is quietly reopened once before it shows as failed', () async {
+    platform.failingOnce.add('https://cdn/a.mp4');
+    final pool = ReelVideoPool();
+    addTearDown(pool.dispose);
+    final entry = pool.acquire(_a);
+    await settle();
+    // Between the failure and the quiet retry it still looks like it is loading.
+    expect(entry.status, ReelVideoStatus.initializing);
+
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await settle();
+    expect(entry.status, ReelVideoStatus.ready);
+    expect(platform.created, hasLength(2));
+  });
+
+  test('a video that keeps failing ends up failed after the quiet retries', () async {
+    platform.failing.add('https://cdn/a.mp4');
+    final pool = ReelVideoPool(autoRetries: 2);
+    addTearDown(pool.dispose);
+    final entry = pool.acquire(_a);
+    for (var i = 0; i < 3; i++) {
+      await settle();
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+    }
+    await settle();
+    expect(entry.status, ReelVideoStatus.failed);
+    expect(platform.created, hasLength(3));
   });
 
   test('disposing the pool disposes every player', () async {

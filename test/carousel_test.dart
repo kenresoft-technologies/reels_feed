@@ -244,6 +244,8 @@ void main() {
     platform.failing.add(_video);
     await tester.pumpWidget(_app(ReelMediaCarousel(media: [_clip])));
     await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    await _settle(tester);
 
     expect(find.text("Couldn't play this video"), findsOneWidget);
 
