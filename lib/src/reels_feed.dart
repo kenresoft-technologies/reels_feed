@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 
+import 'media/reel_video_cache.dart';
 import 'media/reel_video_pool.dart';
 import 'reel_item_state.dart';
 import 'reels_feed_controller.dart';
@@ -89,6 +90,7 @@ class ReelsFeed extends StatefulWidget {
     this.viewDuration = const Duration(seconds: 1),
     this.emptyBuilder,
     this.pool,
+    this.cacheVideos = true,
     this.physics,
     this.backgroundColor = Colors.black,
     this.keyboardShortcuts = true,
@@ -143,6 +145,11 @@ class ReelsFeed extends StatefulWidget {
 
   /// Shown when [itemCount] is zero.
   final WidgetBuilder? emptyBuilder;
+
+  /// Whether network videos are saved to disk so a revisit plays instantly
+  /// without the network, as in the big reels apps. Ignored when you pass your
+  /// own [pool]. On the web it does nothing.
+  final bool cacheVideos;
 
   /// The pool that opens and recycles the videos. The feed makes and disposes
   /// its own unless you pass one (then you dispose it).
@@ -203,7 +210,7 @@ class _ReelsFeedState extends State<ReelsFeed> with WidgetsBindingObserver {
 
   void _attachPool() {
     _ownsPool = widget.pool == null;
-    _pool = widget.pool ?? ReelVideoPool();
+    _pool = widget.pool ?? ReelVideoPool(cache: widget.cacheVideos ? ReelVideoCache() : null);
   }
 
   @override

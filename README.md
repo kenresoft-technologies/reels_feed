@@ -25,9 +25,12 @@ ReelsFeed(
 - **Smooth on real phones.** A video player holds a hardware decoder, and a feed
   that opens one per post runs out of them. `reels_feed` uses a *video pool*:
   the visible post plays, the posts around it are opened and paused, and
-  everything else is released. A long scroll keeps at most four players open.
+  everything else is released. A long scroll never has more than three players open (`ReelVideoPool.maxPlayers`), because phones have only a few hardware decoders and the system takes one away from a paused player when an app asks for too many.
 - **Instant swipes.** The next post's video is already open, with its poster
   picture showing, when you swipe to it.
+- **Revisits are instant too.** Scroll past a video and back and it picks up where it was, with no
+  reload. Network videos are also saved to disk in the background (`cacheVideos`), so a video you have
+  seen plays from the device even many posts later, as in the big reels apps.
 - **Posts with several pictures and videos.** A post is a swipeable carousel of
   mixed media. Mute is shared, so unmuting once unmutes every video.
 - **Behaves like a good citizen.** Videos stop when the app goes to the
@@ -141,6 +144,7 @@ The snapping vertical feed.
 | `isLoadingMore`, `loadingMoreBuilder` | Show a loading indicator and hold back `onEndReached`. |
 | `onItemViewed`, `viewDuration` | A post was seen for long enough (default 1 second). Once per post. |
 | `emptyBuilder` | What to show with zero posts. |
+| `cacheVideos` | Save network videos to disk (default `true`). See below. |
 | `pool` | Your own `ReelVideoPool` (to share or customise it). |
 | `physics`, `backgroundColor`, `keyboardShortcuts`, `semanticLabel` | Appearance and behaviour. |
 
@@ -258,6 +262,23 @@ ReelsFeed(preload: const ReelsPreload(ahead: 2, behind: 0), ...)
 More `ahead` makes fast swiping smoother and uses more memory and data. Each
 prepared video holds a decoder, so go above 2 only on purpose.
 
+### Video cache
+
+`ReelsFeed` saves network videos to the device by default: a video that is not saved yet
+streams as usual while a copy downloads in the background, and the next time it is needed it plays
+from the saved file with no network. The cache keeps itself under 200 MB by deleting the least
+recently used videos, skips streaming playlists (HLS, DASH) and anything that is not a plain video
+file, and stores its files where the system may clear them.
+
+```dart
+final cache = ReelVideoCache(maxBytes: 500 * 1024 * 1024, maxFileBytes: 100 * 1024 * 1024);
+ReelsFeed(pool: ReelVideoPool(cache: cache), ...);   // share it, or change its limits
+ReelsFeed(cacheVideos: false, ...);                  // turn it off
+await cache.clear();                                 // for example from a settings screen
+```
+
+On the web there is no file storage, so the cache does nothing there and the browser cache applies.
+
 ## Platform notes
 
 - **Web:** browsers only autoplay muted video, so the feed starts muted there
@@ -273,6 +294,17 @@ prepared video holds a decoder, so go above 2 only on purpose.
   `active` to whether its tab is selected.
 
 ## Performance notes
+
+**Phones have only a few hardware video decoders.** Each open video player holds one, even
+while paused, and when an app asks for more than the phone has, the system takes one away from a
+paused player. That player then errors and the video reloads. The pool therefore never has more than
+three players open (`ReelVideoPool.maxPlayers`): extra videos wait for a slot, and the video on
+screen takes a slot from a preloaded neighbour if it must. Raise it only if you know your target
+devices allow it.
+
+Also avoid seeking videos you are not playing. On some phones (MediaTek ones in particular) a
+seek makes the paused decoder flush, which can hang and fail the video. That is why videos resume
+where they left off by default instead of restarting (`restartOnActive: true` opts in).
 
 On a mid-range Android phone (profile mode) scrolling the example feed with videos, captions and the
 action rail renders 90% of frames in about 20 ms, against about 9 ms for a bare `PageView` of
@@ -290,7 +322,7 @@ blurred shadows.
 
 `ReelVideoPool` takes a `controllerFactory`, and `video_player` can be faked with
 `VideoPlayerPlatform.instance`. The package's own tests do this to check that a
-long scroll never keeps more than four players open, so you can do the same for
+long scroll never keeps more than three players open, so you can do the same for
 your screens.
 
 ## License

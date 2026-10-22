@@ -59,7 +59,7 @@ class ReelMediaCarousel extends StatefulWidget {
     this.showProgressBar = true,
     this.progressPadding = EdgeInsets.zero,
     this.showPauseIcon = true,
-    this.restartOnActive = true,
+    this.restartOnActive = false,
     this.heartBurst,
     this.imageBuilder,
     this.errorBuilder,
@@ -120,7 +120,10 @@ class ReelMediaCarousel extends StatefulWidget {
   /// Whether to show a play icon over a paused video.
   final bool showPauseIcon;
 
-  /// Whether a video starts over each time its post becomes the active one.
+  /// Whether a video starts over each time its post becomes the active one. By
+  /// default it resumes where it was, which is instant because it is already
+  /// buffered. Starting over needs a seek, and seeking a paused video decoder can
+  /// hang on some phones, so turn this on only if you need it.
   final bool restartOnActive;
 
   /// Replaces the heart that bursts on a double tap.

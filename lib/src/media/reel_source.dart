@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
 
 import 'platform_file_stub.dart' if (dart.library.io) 'platform_file_io.dart';
+import 'reel_video_cache.dart';
 
 /// Where a picture or a video comes from: a web address, an app asset or a file
 /// on the device.
@@ -94,8 +95,17 @@ final class ReelFileSource extends ReelSource {
 
 /// Builds the player behind a video [source]. Used by the video pool; the
 /// defaults cover network, asset and file sources.
-VideoPlayerController createReelVideoController(ReelSource source, {required bool mixWithOthers}) {
+VideoPlayerController createReelVideoController(
+  ReelSource source, {
+  required bool mixWithOthers,
+  ReelVideoCache? cache,
+}) {
   final options = VideoPlayerOptions(mixWithOthers: mixWithOthers);
+  if (source is ReelNetworkSource && cache != null && cache.isSupported) {
+    final saved = cache.pathFor(source);
+    if (saved != null) return fileVideoController(saved, options);
+    cache.prefetch(source); // streams now, and plays from disk next time
+  }
   return switch (source) {
     ReelNetworkSource(:final url, :final headers) => VideoPlayerController.networkUrl(
       Uri.parse(url),

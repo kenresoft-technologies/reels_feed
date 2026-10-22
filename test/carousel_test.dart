@@ -114,6 +114,60 @@ void main() {
     await _settle(tester);
   });
 
+  testWidgets('a video resumes where it was when its post is shown again, without seeking', (
+    tester,
+  ) async {
+    Widget carousel(ReelItemPhase phase) => _app(
+      ReelItemScope(
+        state: ReelItemState(index: 1, phase: phase),
+        child: ReelMediaCarousel(media: [_clip]),
+      ),
+    );
+    platform.position = const Duration(seconds: 4);
+    await tester.pumpWidget(carousel(ReelItemPhase.active));
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 700)); // the player reports its position
+    final seeksBefore = platform.count('seek', _video);
+    final playsBefore = platform.count('play', _video);
+
+    await tester.pumpWidget(carousel(ReelItemPhase.preload)); // swiped away
+    await _settle(tester);
+    await tester.pumpWidget(carousel(ReelItemPhase.active)); // swiped back
+    await _settle(tester);
+
+    expect(platform.count('seek', _video), seeksBefore, reason: 'a seek can hang a paused decoder');
+    expect(platform.count('play', _video), playsBefore + 1);
+    expect(platform.created, hasLength(1), reason: 'the same player, not a reload');
+
+    await tester.pumpWidget(const SizedBox());
+    await _settle(tester);
+  });
+
+  testWidgets('restartOnActive starts the video over when its post is shown again', (tester) async {
+    Widget carousel(ReelItemPhase phase) => _app(
+      ReelItemScope(
+        state: ReelItemState(index: 1, phase: phase),
+        child: ReelMediaCarousel(media: [_clip], restartOnActive: true),
+      ),
+    );
+    platform.position = const Duration(seconds: 4);
+    await tester.pumpWidget(carousel(ReelItemPhase.active));
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 700));
+    final seeksBefore = platform.count('seek', _video);
+
+    await tester.pumpWidget(carousel(ReelItemPhase.preload));
+    await _settle(tester);
+    expect(platform.count('seek', _video), seeksBefore, reason: 'nothing happens on leaving');
+    await tester.pumpWidget(carousel(ReelItemPhase.active));
+    await _settle(tester);
+
+    expect(platform.count('seek', _video), seeksBefore + 1);
+
+    await tester.pumpWidget(const SizedBox());
+    await _settle(tester);
+  });
+
   testWidgets('tapping pauses and tapping again resumes', (tester) async {
     await tester.pumpWidget(_app(ReelMediaCarousel(media: [_clip])));
     await _settle(tester);
@@ -173,6 +227,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         ReelsFeed(
+          cacheVideos: false,
           itemCount: 1,
           controller: controller,
           itemBuilder: (context, index) => ReelMediaCarousel(media: [_clip]),
@@ -194,6 +249,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         ReelsFeed(
+          cacheVideos: false,
           itemCount: 3,
           itemBuilder: (context, index) =>
               ReelMediaCarousel(media: [ReelMedia.videoUrl('https://cdn/$index.mp4')]),
@@ -215,6 +271,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         ReelsFeed(
+          cacheVideos: false,
           itemCount: 12,
           controller: controller,
           itemBuilder: (context, index) =>
@@ -231,8 +288,7 @@ void main() {
       await _settle(tester);
       await move;
       await _realSettle(tester);
-      // Visible post + one before + one ahead + one idle spare.
-      expect(platform.openCount, lessThanOrEqualTo(4), reason: 'at post $i');
+      expect(platform.openCount, lessThanOrEqualTo(3), reason: 'at post $i');
     }
     expect(platform.created.length, greaterThan(8));
 

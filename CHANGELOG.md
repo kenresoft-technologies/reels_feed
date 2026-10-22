@@ -12,6 +12,13 @@ First release.
 - Overlays: `ReelActionRail`, `ReelCaption`, `ReelScrim`, `ReelProgressBar`, `ReelHeartBurst`,
   `formatReelCount`.
 - Network, asset and file sources for pictures and videos; custom image loading through `imageBuilder`.
+- Never opens more than `ReelVideoPool.maxPlayers` (3) players, because phones have few hardware
+  decoders and the system takes one from a paused player when an app asks for too many. Extra videos
+  wait for a slot; the video on screen borrows one from a preloaded neighbour.
+- `ReelVideoCache`: network videos are saved to disk in the background (`ReelsFeed.cacheVideos`,
+  on by default) so a revisit plays from the device without the network.
+- Scrolling past a video and back resumes it instantly instead of reloading it. `restartOnActive`
+  starts videos over if you want that.
 - Quietly reopens a video that fails once (`ReelVideoPool.autoRetries`) before showing the error, and
   a player that breaks after opening can be retried too.
 - Overlays use a cheap hard shadow instead of a blurred one (`reelCheapShadow`), which keeps scrolling

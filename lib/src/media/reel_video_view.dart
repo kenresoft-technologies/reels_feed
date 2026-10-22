@@ -33,7 +33,7 @@ class ReelVideoView extends StatefulWidget {
     this.showProgressBar = true,
     this.progressPadding = EdgeInsets.zero,
     this.showPauseIcon = true,
-    this.restartOnActive = true,
+    this.restartOnActive = false,
     this.errorBuilder,
   });
 
@@ -133,13 +133,15 @@ class _ReelVideoViewState extends State<ReelVideoView> {
 
   void _syncEntry() {
     if (widget.hold && _entry == null) {
-      final entry = widget.pool.acquire(widget.media.source);
+      final entry = widget.pool.acquire(widget.media.source, active: widget.play);
       entry.addListener(_onEntryChanged);
       _entry = entry;
       _entryPool = widget.pool;
     } else if (!widget.hold && _entry != null) {
       _releaseEntry();
     }
+    final entry = _entry;
+    if (entry != null) widget.pool.setActive(entry, widget.play);
     _apply();
   }
 
@@ -177,12 +179,15 @@ class _ReelVideoViewState extends State<ReelVideoView> {
 
     final activating = widget.play && !_wasActive;
     _wasActive = widget.play;
-    if (activating && widget.restartOnActive && controller.value.position > Duration.zero) {
-      controller.seekTo(Duration.zero);
-    }
 
     final shouldPlay = widget.play && !widget.paused.value && !widget.holding.value;
     if (shouldPlay) {
+      // Seeking makes the player flush its decoder. A paused decoder on some phones
+      // (MediaTek ones in particular) can hang on that, so by default a video
+      // simply resumes where it was: it is already buffered, so it is instant.
+      if (activating && widget.restartOnActive && controller.value.position > Duration.zero) {
+        controller.seekTo(Duration.zero);
+      }
       if (!controller.value.isPlaying) controller.play();
     } else if (controller.value.isPlaying) {
       controller.pause();
@@ -219,7 +224,8 @@ class _ReelVideoViewState extends State<ReelVideoView> {
               listenable: entry,
               builder: (context, _) {
                 if (entry.status == ReelVideoStatus.failed) return _failure(entry);
-                if (entry.status == ReelVideoStatus.initializing) {
+                if (entry.status == ReelVideoStatus.initializing ||
+                    entry.status == ReelVideoStatus.waiting) {
                   return _poster(1, spinner: widget.play);
                 }
                 return _ready(entry);

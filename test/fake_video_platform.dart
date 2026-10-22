@@ -10,6 +10,9 @@ class FakeVideoPlatform extends VideoPlayerPlatform with MockPlatformInterfaceMi
   /// Addresses that fail to open.
   final Set<String> failing = <String>{};
 
+  /// Where every player reports its playhead to be.
+  Duration position = Duration.zero;
+
   /// Addresses that fail to open only the next time, then work.
   final Set<String> failingOnce = <String>{};
 
@@ -116,7 +119,7 @@ class FakeVideoPlatform extends VideoPlayerPlatform with MockPlatformInterfaceMi
   Future<void> setPlaybackSpeed(int playerId, double speed) async {}
 
   @override
-  Future<Duration> getPosition(int playerId) async => Duration.zero;
+  Future<Duration> getPosition(int playerId) async => position;
 
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) async {}

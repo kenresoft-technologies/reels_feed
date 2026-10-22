@@ -10,6 +10,7 @@ export 'src/media/reel_media.dart' show ReelMedia, ReelMediaType;
 export 'src/media/reel_media_carousel.dart' show ReelIndicatorStyle, ReelMediaCarousel;
 export 'src/media/reel_source.dart'
     show ReelAssetSource, ReelFileSource, ReelNetworkSource, ReelSource, createReelVideoController;
+export 'src/media/reel_video_cache.dart' show ReelVideoCache;
 export 'src/media/reel_video_pool.dart'
     show ReelVideoControllerFactory, ReelVideoEntry, ReelVideoPool, ReelVideoStatus;
 export 'src/media/reel_video_view.dart' show ReelErrorBuilder;
